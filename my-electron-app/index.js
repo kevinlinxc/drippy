@@ -26,7 +26,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true
     },
-    alwaysOnTop: false
+    alwaysOnTop: true
   });
 
   win.loadFile('index.html');
