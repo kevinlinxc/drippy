@@ -1,5 +1,6 @@
 .env
 *.egg-info
+debug/
 <<<<<<< Updated upstream
 **.pyc
 

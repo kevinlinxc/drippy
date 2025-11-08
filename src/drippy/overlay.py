@@ -33,12 +33,24 @@ class OverlayWindow(QMainWindow):
         self.setWindowFlags(
             Qt.WindowType.WindowStaysOnTopHint |
             Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.X11BypassWindowManagerHint |
-            Qt.WindowType.Tool
+            Qt.WindowType.SplashScreen |  # SplashScreen has higher z-order than Tool
+            Qt.WindowType.WindowDoesNotAcceptFocus  # Don't steal focus from other windows
         )
         
         # Make window transparent
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        # Make window always stay on top, even when other apps are activated
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, False)
+        
+        # On macOS, set window level to be above dock
+        if sys.platform == 'darwin':
+            try:
+                from PyQt5.QtCore import QTimer
+                # Use a timer to set window level after window is created
+                QTimer.singleShot(0, self._set_macos_window_level)
+            except Exception:
+                pass
         
         # Set window title (for debugging)
         self.setWindowTitle("Bounding Box Overlay")
@@ -75,6 +87,12 @@ class OverlayWindow(QMainWindow):
         
         # Set size
         self.character_label.setFixedSize(self.character_size, self.character_size)
+    
+    def _set_macos_window_level(self):
+        """Set macOS window level to be above dock using Objective-C APIs."""
+        # The SplashScreen window flag should already provide high z-order
+        # If needed, we can add PyObjC-based window level setting here
+        pass
     
     def paintEvent(self, event):
         """Paint the overlay with dark background and transparent hole for bounding box."""
@@ -249,16 +267,25 @@ class OverlayWindow(QMainWindow):
             button_height = 40
             button_corner_radius = 8
             
-            # Done button (primary, green/blue)
-            done_button_x = text_x - bg_padding_x
+            # Continue button (primary, green/blue)
+            # Calculate button width based on text width
+            button_font = QFont()
+            button_font.setPointSize(13)
+            button_font.setBold(True)
+            painter.setFont(button_font)
+            button_font_metrics = painter.fontMetrics()
+            continue_text_width = button_font_metrics.horizontalAdvance("Continue")
+            button_width = max(100, continue_text_width + 24)  # Ensure minimum width with padding
+            
+            continue_button_x = text_x - bg_padding_x
             self.done_button_rect = QRect(
-                done_button_x,
+                continue_button_x,
                 button_y,
                 button_width,
                 button_height
             )
             
-            # Draw Done button
+            # Draw Continue button
             done_path = QPainterPath()
             done_path.addRoundedRect(
                 self.done_button_rect.x(), self.done_button_rect.y(),
@@ -266,14 +293,14 @@ class OverlayWindow(QMainWindow):
                 button_corner_radius, button_corner_radius
             )
             
-            # Done button color (green when hovered, darker green otherwise)
+            # Continue button color (green when hovered, darker green otherwise)
             if self.done_hovered:
                 done_bg_color = QColor(76, 175, 80, 255)  # Bright green
             else:
                 done_bg_color = QColor(56, 142, 60, 255)  # Darker green
             painter.fillPath(done_path, done_bg_color)
             
-            # Done button border
+            # Continue button border
             done_border_color = QColor(255, 255, 255, 120)
             pen = painter.pen()
             pen.setColor(done_border_color)
@@ -281,27 +308,22 @@ class OverlayWindow(QMainWindow):
             painter.setPen(pen)
             painter.drawPath(done_path)
             
-            # Done button text
-            button_font = QFont()
-            button_font.setPointSize(13)
-            button_font.setBold(True)
-            painter.setFont(button_font)
-            button_font_metrics = painter.fontMetrics()
-            done_text_x = done_button_x + (button_width - button_font_metrics.horizontalAdvance("Done")) // 2
-            done_text_y = button_y + button_font_metrics.ascent() + (button_height - button_font_metrics.height()) // 2
+            # Continue button text
+            continue_text_x = continue_button_x + (button_width - continue_text_width) // 2
+            continue_text_y = button_y + button_font_metrics.ascent() + (button_height - button_font_metrics.height()) // 2
             painter.setPen(QColor(255, 255, 255, 255))
-            painter.drawText(done_text_x, done_text_y, "Done")
+            painter.drawText(continue_text_x, continue_text_y, "Continue")
             
-            # Cancel button (secondary, gray)
-            cancel_button_x = done_button_x + button_width + button_spacing
+            # Exit button (secondary, gray)
+            exit_button_x = continue_button_x + button_width + button_spacing
             self.cancel_button_rect = QRect(
-                cancel_button_x,
+                exit_button_x,
                 button_y,
                 button_width,
                 button_height
             )
             
-            # Draw Cancel button
+            # Draw Exit button
             cancel_path = QPainterPath()
             cancel_path.addRoundedRect(
                 self.cancel_button_rect.x(), self.cancel_button_rect.y(),
@@ -309,29 +331,30 @@ class OverlayWindow(QMainWindow):
                 button_corner_radius, button_corner_radius
             )
             
-            # Cancel button color (lighter gray when hovered)
+            # Exit button color (lighter gray when hovered)
             if self.cancel_hovered:
                 cancel_bg_color = QColor(97, 97, 97, 255)  # Lighter gray
             else:
                 cancel_bg_color = QColor(66, 66, 66, 255)  # Darker gray
             painter.fillPath(cancel_path, cancel_bg_color)
             
-            # Cancel button border
+            # Exit button border
             cancel_border_color = QColor(255, 255, 255, 100)
             pen.setColor(cancel_border_color)
             painter.setPen(pen)
             painter.drawPath(cancel_path)
             
-            # Cancel button text
-            cancel_text_x = cancel_button_x + (button_width - button_font_metrics.horizontalAdvance("Cancel")) // 2
-            cancel_text_y = button_y + button_font_metrics.ascent() + (button_height - button_font_metrics.height()) // 2
+            # Exit button text
+            exit_text_x = exit_button_x + (button_width - button_font_metrics.horizontalAdvance("Exit")) // 2
+            exit_text_y = button_y + button_font_metrics.ascent() + (button_height - button_font_metrics.height()) // 2
             painter.setPen(QColor(255, 255, 255, 255))
-            painter.drawText(cancel_text_x, cancel_text_y, "Cancel")
+            painter.drawText(exit_text_x, exit_text_y, "Exit")
     
     def keyPressEvent(self, event: QKeyEvent):
         """Handle key press events - close on Escape."""
         if event.key() == Qt.Key.Key_Escape:
-            QApplication.instance().quit()
+            self.button_result = 'cancel'  # Treat Escape as cancel
+            self.close()
         super().keyPressEvent(event)
     
     def mouseMoveEvent(self, event: QMouseEvent):
@@ -358,27 +381,114 @@ class OverlayWindow(QMainWindow):
     
     def mousePressEvent(self, event: QMouseEvent):
         """Handle mouse clicks on buttons and overlay."""
-        # Check if click is on Done button
+        # Check if click is on Continue button
         if self.done_button_rect and self.done_button_rect.contains(event.pos()):
             self.button_result = 'done'
-            QApplication.instance().quit()
+            self.close()
             return
         
-        # Check if click is on Cancel button
+        # Check if click is on Exit button
         if self.cancel_button_rect and self.cancel_button_rect.contains(event.pos()):
             self.button_result = 'cancel'
-            QApplication.instance().quit()
+            self.close()
             return
         
-        # Check if click is within bounding box
-        bbox_rect = QRect(self.bbox_x, self.bbox_y, self.bbox_width, self.bbox_height)
-        if bbox_rect.contains(event.pos()):
-            # Click inside bounding box - don't close
-            return
+        # Check if click is in the text/button area (to the right of bounding box)
+        # We want clicks in this area to be handled, but not close the overlay
+        # For all other clicks, pass them through to underlying windows
+        # Don't close the overlay on outside clicks - let user use buttons or Escape
         
-        # Click outside - close overlay
-        QApplication.instance().quit()
         super().mousePressEvent(event)
+
+
+def show_overlay(x, y, width, height, text=""):
+    """
+    Show overlay and return button result.
+    
+    Args:
+        x: X coordinate of bounding box
+        y: Y coordinate of bounding box
+        width: Width of bounding box
+        height: Height of bounding box
+        text: Text instructions to display
+        
+    Returns:
+        'done' if Continue button was clicked, 'cancel' if Exit button was clicked, None if closed otherwise
+    """
+    # Check if QApplication already exists
+    app = QApplication.instance()
+    if app is None:
+        # Create new QApplication if it doesn't exist
+        app = QApplication(sys.argv)
+    
+    # Create overlay window
+    window = OverlayWindow(x, y, width, height, text)
+    
+    # Get screen geometry and set window to cover entire screen
+    screen = app.primaryScreen().geometry()
+    window.setGeometry(screen)
+    
+    window.show()
+    window.raise_()
+    # Don't activate or focus - we want it to stay on top but not steal focus
+    
+    # Force window to front on macOS to appear above dock
+    if sys.platform == 'darwin':
+        # Ensure window stays on top
+        window.setWindowFlags(
+            window.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
+        )
+        window.show()
+        window.raise_()
+    
+    # Make sure character is on top
+    if window.character_label:
+        window.character_label.raise_()
+    
+    # Use a local event loop to wait for window to close
+    from PyQt5.QtCore import QEventLoop, QTimer
+    loop = QEventLoop()
+    
+    # Keep window on top even when other windows are activated
+    # Use a timer to periodically ensure it stays on top
+    def keep_on_top():
+        if window.isVisible():
+            window.raise_()
+            window.setWindowFlags(
+                window.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
+            )
+            window.show()
+    
+    # Set up a timer to keep window on top
+    keep_top_timer = QTimer()
+    keep_top_timer.timeout.connect(keep_on_top)
+    keep_top_timer.start(100)  # Check every 100ms
+    
+    def check_closed():
+        if not window.isVisible():
+            keep_top_timer.stop()
+            loop.quit()
+    
+    # Check periodically if window is closed
+    close_timer = QTimer()
+    close_timer.timeout.connect(check_closed)
+    close_timer.start(50)  # Check every 50ms
+    
+    # Also connect to close event
+    def on_destroyed():
+        keep_top_timer.stop()
+        close_timer.stop()
+        loop.quit()
+    
+    window.destroyed.connect(on_destroyed)
+    
+    # Run local event loop
+    loop.exec()
+    
+    keep_top_timer.stop()
+    close_timer.stop()
+    
+    return window.button_result
 
 
 def main():
@@ -405,8 +515,16 @@ def main():
     
     window.show()
     window.raise_()
-    window.activateWindow()
-    window.setFocus()
+    # Don't activate or focus - we want it to stay on top but not steal focus
+    
+    # Force window to front on macOS to appear above dock
+    if sys.platform == 'darwin':
+        # Ensure window stays on top
+        window.setWindowFlags(
+            window.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
+        )
+        window.show()
+        window.raise_()
     
     # Make sure character is on top
     if window.character_label:
