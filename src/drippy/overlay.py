@@ -31,9 +31,12 @@ class OverlayWindow(QMainWindow):
         # Make window transparent
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
-        # Don't steal focus
+        # Don't steal focus but still accept mouse events
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        
+        # Ensure we can receive mouse events
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
         
         # Set window title
         self.setWindowTitle("Bounding Box Overlay")
@@ -118,9 +121,21 @@ class OverlayWindow(QMainWindow):
         painter.drawRect(bbox_rect)
     
     def mousePressEvent(self, event: QMouseEvent):
-        """Close overlay immediately on click."""
+        """Close overlay immediately on any click."""
         self.close()
-        super().mousePressEvent(event)
+        event.accept()
+    
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        """Close overlay immediately on any mouse release."""
+        self.close()
+        event.accept()
+    
+    def mouseMoveEvent(self, event: QMouseEvent):
+        """Close overlay on mouse move (optional, for immediate response)."""
+        # Uncomment if you want it to close on mouse move too
+        # self.close()
+        # event.accept()
+        pass
 
 
 def show_overlay(x, y, width, height):
@@ -192,3 +207,22 @@ def show_overlay(x, y, width, height):
     
     keep_top_timer.stop()
     close_timer.stop()
+
+
+def main():
+    """Main entry point for command-line usage."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Show overlay highlighting a bounding box')
+    parser.add_argument('x', type=int, help='X coordinate of bounding box')
+    parser.add_argument('y', type=int, help='Y coordinate of bounding box')
+    parser.add_argument('width', type=int, help='Width of bounding box')
+    parser.add_argument('height', type=int, help='Height of bounding box')
+    
+    args = parser.parse_args()
+    
+    show_overlay(args.x, args.y, args.width, args.height)
+
+
+if __name__ == '__main__':
+    main()
