@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "drippy"
 version = "0.1.0"
@@ -7,4 +11,13 @@ requires-python = ">=3.12"
 dependencies = [
     "google-generativeai",
     "Pillow",
+    "python-dotenv>=1.2.1",
+    "opencv-python",
+    "numpy",
+    "mss",
+    "fastapi",
+    "uvicorn[standard]",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
