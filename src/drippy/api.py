@@ -1,7 +1,6 @@
 import os
 import re
 import sys
-import threading
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -323,21 +322,28 @@ async def next_action(request: TodoListRequest):
     print("[API] Showing overlay...")
     # Show overlay with converted coordinates
     # On macOS, PyQt windows must be created on the main thread
-    # Use QTimer to schedule on main thread if QApplication exists
-    app = QApplication.instance()
-    if app is not None:
-        # QApplication exists, schedule overlay on main thread
-        from PyQt5.QtCore import QTimer
-        def show_overlay_on_main_thread():
+    # Run overlay in a separate process using uv run
+    project_root = Path(__file__).parent.parent.parent
+    
+    # Build command to run overlay using uv run
+    cmd = f'cd "{project_root}" && uv run python -m src.drippy.overlay {x} {y} {width} {height}'
+    print(f"[API] Running overlay command: {cmd}")
+    
+    try:
+        # Run in background (use & on Unix, start on Windows)
+        if sys.platform == 'win32':
+            os.system(f'start /B {cmd}')
+        else:
+            os.system(f'{cmd} &')
+        print("[API] Overlay process started")
+    except Exception as e:
+        print(f"[API] Error starting overlay: {e}")
+        # Fallback: try direct call (will block but at least it works)
+        print("[API] Warning: Falling back to direct call (will block API response)")
+        try:
             show_overlay(x, y, width, height)
-        QTimer.singleShot(0, show_overlay_on_main_thread)
-        print("[API] Overlay scheduled on main thread")
-    else:
-        # No QApplication yet, create one and show overlay
-        # This will block until overlay closes, but it's the only way on macOS
-        print("[API] Creating QApplication and showing overlay (this will block until overlay closes)")
-        show_overlay(x, y, width, height)
-        print("[API] Overlay closed")
+        except Exception as e2:
+            print(f"[API] Error in direct call: {e2}")
     
     # Return next action with bounding box and instructions
     response = NextActionResponse(
