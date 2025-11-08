@@ -36,9 +36,9 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 # Start backend
-echo -e "${GREEN}Starting backend server on http://localhost:8000${NC}"
+echo -e "${GREEN}Starting backend server on http://localhost:8501${NC}"
 source .venv/bin/activate
-uvicorn drippy.api:app --reload &
+uvicorn drippy.api:app --reload --port 8501 &
 BACKEND_PID=$!
 
 # Wait a bit for backend to start
@@ -52,8 +52,8 @@ FRONTEND_PID=$!
 cd ..
 
 echo -e "\n${BLUE}Both services are running!${NC}"
-echo -e "${BLUE}Backend API: http://localhost:8000${NC}"
-echo -e "${BLUE}API Docs: http://localhost:8000/docs${NC}"
+echo -e "${BLUE}Backend API: http://localhost:8501${NC}"
+echo -e "${BLUE}API Docs: http://localhost:8501/docs${NC}"
 echo -e "${BLUE}Press Ctrl+C to stop both services${NC}\n"
 
 # Wait for both processes

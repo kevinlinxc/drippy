@@ -6,8 +6,8 @@ source .venv/bin/activate
 
 uv pip install -e .
 
-uvicorn drippy.api:app --reload
-visit localhost:8000/docs
+uvicorn drippy.api:app --reload --port 8501
+visit localhost:8501/docs
 
 frontend go to "my-electron-app"
 npm i
