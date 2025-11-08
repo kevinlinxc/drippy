@@ -2,8 +2,8 @@ import sys
 import argparse
 from pathlib import Path
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel
-from PyQt5.QtCore import Qt, QRect, QMovie
-from PyQt5.QtGui import QPainter, QColor, QKeyEvent, QFont, QPainterPath, QMouseEvent
+from PyQt5.QtCore import Qt, QRect
+from PyQt5.QtGui import QPainter, QColor, QKeyEvent, QFont, QPainterPath, QMouseEvent, QMovie
 
 
 class OverlayWindow(QMainWindow):
@@ -164,9 +164,9 @@ class OverlayWindow(QMainWindow):
             font.setBold(True)
             painter.setFont(font)
             
-            # Position character to the left of the bounding box
+            # Position character to the right of the bounding box
             character_spacing = 20
-            character_x = bbox_rect.left() - self.character_size - character_spacing
+            character_x = bbox_rect.right() + character_spacing
             character_y = bbox_rect.top()
             
             # Position text box to the right of the character
@@ -200,7 +200,7 @@ class OverlayWindow(QMainWindow):
             # Add speech bubble tail pointing left toward character
             tail_width = 15
             tail_height = 12
-            tail_x = bg_rect.left()
+            tail_x = bg_rect.left()  # Tail on the left side of the bubble
             tail_y = bg_rect.top() + 20  # Position tail near top-middle
             
             tail_points = [
