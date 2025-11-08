@@ -1,27 +1,33 @@
-const { app, BrowserWindow, screen } = require('electron/main')
+const { app, BrowserWindow, screen } = require('electron/main');
 
 let win;
 
 function createWindow() {
-  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
-  const windowWidth = Math.floor(screenWidth / 3);
-  const xPosition = 0; // left side
+  const display = screen.getPrimaryDisplay();
+  const { width: screenWidth } = display.workAreaSize;
+  const { height: fullHeight } = display.bounds; // includes Dock
+
+  const windowWidth = Math.floor(screenWidth / 3.5);
+  const windowHeight = Math.floor(fullHeight * 0.5);
+
+  const xPosition = 0; // left edge
+  const yPosition = fullHeight - windowHeight; // true bottom
 
   win = new BrowserWindow({
     width: windowWidth,
-    height: screenHeight,
+    height: windowHeight,
     x: xPosition,
-    y: 0,
-    minWidth: 400,
-    minHeight: 600,
-    vibrancy: "hud",
+    y: yPosition,
+    minWidth: 200,
+    minHeight: 300,
+    vibrancy: 'hud',
     titleBarStyle: 'hiddenInset',
     titleBarOverlay: {
       color: '#ffffff',
       symbolColor: '#000000',
       height: 40
     },
-    visualEffectState: "active",
+    visualEffectState: 'active',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true
@@ -33,17 +39,13 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  createWindow()
+  createWindow();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
-    }
-  })
-})
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
-})
+  if (process.platform !== 'darwin') app.quit();
+});
