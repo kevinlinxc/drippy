@@ -4,37 +4,269 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tailwindcss.com; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.tailwindcss.com;"
     />
-    <meta
-      http-equiv="X-Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'"
-    />
-    <title>My Electron App</title>
+    <title>Drippy - AI Assistant</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100vh;
-        margin: 0;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        overflow: hidden;
       }
-      h1 {
-        font-size: 2.5em;
-        margin-bottom: 0.5em;
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
-      p {
-        font-size: 1.2em;
-        opacity: 0.9;
+      @keyframes slide-in-from-bottom {
+        from { transform: translateY(10px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      .animate-in {
+        animation: fade-in 0.3s ease-out, slide-in-from-bottom 0.3s ease-out;
       }
     </style>
   </head>
   <body>
-    <h1>Hello from Electron! 🚀</h1>
-    <p>Your Electron app is running successfully!</p>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+      const { useState, useRef, useEffect } = React;
+
+      // Lucide React icons as SVG components
+      const Icon = ({ d, ...props }) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+          {Array.isArray(d) ? d.map((path, i) => <path key={i} d={path} />) : <path d={d} />}
+        </svg>
+      );
+
+      const Send = (props) => <Icon d="M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z" {...props} />;
+      const Plus = (props) => <Icon d="M12 5v14 M5 12h14" {...props} />;
+      const Menu = (props) => <Icon d="M4 6h16 M4 12h16 M4 18h16" {...props} />;
+      const Sun = (props) => <Icon d={["M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M6.34 17.66l-1.41 1.41 M19.07 4.93l-1.41 1.41", "M12 7a5 5 0 100 10 5 5 0 000-10z"]} {...props} />;
+      const Moon = (props) => <Icon d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" {...props} />;
+      const Sparkles = (props) => <Icon d={["M9.937 15.5a2 2 0 0 0 .286-.071A7.5 7.5 0 1 0 8.5 2.15a.75.75 0 0 0-.245 1.467 6 6 0 1 1-1.538 11.668.75.75 0 0 0-.717 1.233A7.48 7.48 0 0 0 9.937 15.5z", "M12 10l1 1-1 1-1-1 1-1z M18 6l1 1-1 1-1-1 1-1z M6 18l1 1-1 1-1-1 1-1z"]} {...props} />;
+      const User = (props) => <Icon d={["M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2", "M12 11a4 4 0 100-8 4 4 0 000 8z"]} {...props} />;
+      const Bot = (props) => <Icon d={["M12 8V4H8", "M16 8V4h-4", "M12 18v-6", "M4 16v-2a2 2 0 012-2h12a2 2 0 012 2v2", "M18 18h.01", "M6 18h.01"]} {...props} />;
+      const Settings = (props) => <Icon d={["M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z", "M12 15a3 3 0 100-6 3 3 0 000 6z"]} {...props} />;
+      const Edit3 = (props) => <Icon d={["M12 20h9", "M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"]} {...props} />;
+      const Trash2 = (props) => <Icon d={["M3 6h18", "M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2", "M10 11v6", "M14 11v6"]} {...props} />;
+
+      function ModernAIChatbot() {
+        const [messages, setMessages] = useState([]);
+        const [input, setInput] = useState('');
+        const [isTyping, setIsTyping] = useState(false);
+        const [isDark, setIsDark] = useState(false);
+        const [sidebarOpen, setSidebarOpen] = useState(true);
+        const [chats, setChats] = useState([
+          { id: 1, title: 'New Conversation', date: 'Today' },
+          { id: 2, title: 'Product Design Ideas', date: 'Yesterday' },
+          { id: 3, title: 'Code Review Help', date: '2 days ago' },
+        ]);
+        const [activeChat, setActiveChat] = useState(1);
+        const messagesEndRef = useRef(null);
+
+        const scrollToBottom = () => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        useEffect(() => {
+          scrollToBottom();
+        }, [messages]);
+
+        const handleSend = async () => {
+          if (!input.trim()) return;
+
+          const userMessage = {
+            id: Date.now(),
+            type: 'user',
+            content: input,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          };
+
+          setMessages(prev => [...prev, userMessage]);
+          setInput('');
+          setIsTyping(true);
+
+          // Simulate AI response
+          setTimeout(() => {
+            const aiMessage = {
+              id: Date.now() + 1,
+              type: 'ai',
+              content: "I'm a demo AI assistant. In a real implementation, I would connect to an AI API like Claude, GPT, or Gemini to provide intelligent responses. This interface is designed to showcase a modern, professional chat experience with smooth animations and an intuitive layout.",
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            setMessages(prev => [...prev, aiMessage]);
+            setIsTyping(false);
+          }, 1500);
+        };
+
+        const handleKeyPress = (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+          }
+        };
+
+        const newChat = () => {
+          setMessages([]);
+          const newChatId = Date.now();
+          setChats(prev => [{ id: newChatId, title: 'New Conversation', date: 'Today' }, ...prev]);
+          setActiveChat(newChatId);
+        };
+
+        return (
+          <div className={`flex h-screen ${isDark ? 'bg-gray-950' : 'bg-gray-50'} transition-colors duration-300`}>
+            {/* Sidebar */}
+            <div className={`${sidebarOpen ? 'w-64' : 'w-0'} ${isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} border-r transition-all duration-300 overflow-hidden flex flex-col`}>
+              <div className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className={`w-6 h-6 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                  <span className={`font-semibold text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>Drippy</span>
+                </div>
+              </div>
+
+              <button onClick={newChat} className={`mx-4 mb-4 px-4 py-3 rounded-lg flex items-center gap-2 ${isDark ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'} transition-colors`}>
+                <Plus className="w-5 h-5" />
+                <span className="font-medium">New Chat</span>
+              </button>
+
+              <div className="flex-1 overflow-y-auto px-2">
+                <div className={`px-3 py-2 text-xs font-semibold ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>RECENT</div>
+                {chats.map(chat => (
+                  <button key={chat.id} onClick={() => setActiveChat(chat.id)} className={`w-full px-3 py-2.5 mb-1 rounded-lg text-left group transition-all ${activeChat === chat.id ? isDark ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-900' : isDark ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{chat.title}</div>
+                        <div className="text-xs opacity-60">{chat.date}</div>
+                      </div>
+                      <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                        <button className="p-1 hover:bg-gray-700 rounded"><Edit3 className="w-3 h-3" /></button>
+                        <button className="p-1 hover:bg-gray-700 rounded"><Trash2 className="w-3 h-3" /></button>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className={`p-4 border-t ${isDark ? 'border-gray-800' : 'border-gray-200'}`}>
+                <button className={`w-full px-4 py-2 rounded-lg flex items-center gap-2 ${isDark ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'} transition-colors`}>
+                  <Settings className="w-5 h-5" />
+                  <span className="text-sm">Settings</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Main Chat Area */}
+            <div className="flex-1 flex flex-col">
+              <div className={`h-16 ${isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} border-b flex items-center justify-between px-6`}>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} transition-colors`}>
+                    <Menu className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
+                  </button>
+                  <div>
+                    <h1 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Drippy Assistant</h1>
+                    <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>Powered by advanced AI</p>
+                  </div>
+                </div>
+                
+                <button onClick={() => setIsDark(!isDark)} className={`p-2 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} transition-colors`}>
+                  {isDark ? <Sun className="w-5 h-5 text-gray-400" /> : <Moon className="w-5 h-5 text-gray-600" />}
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                {messages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center p-8">
+                    <div className={`w-16 h-16 rounded-2xl ${isDark ? 'bg-gradient-to-br from-blue-500 to-purple-600' : 'bg-gradient-to-br from-blue-400 to-purple-500'} flex items-center justify-center mb-6 shadow-lg`}>
+                      <Sparkles className="w-8 h-8 text-white" />
+                    </div>
+                    <h2 className={`text-3xl font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>How can I help you today?</h2>
+                    <p className={`text-center ${isDark ? 'text-gray-400' : 'text-gray-600'} max-w-md mb-8`}>Ask me anything, and I'll do my best to provide helpful, accurate responses.</p>
+                    
+                    <div className="grid grid-cols-2 gap-4 max-w-2xl w-full">
+                      {[
+                        { icon: '💡', title: 'Get ideas', desc: 'for creative projects' },
+                        { icon: '📝', title: 'Write content', desc: 'emails, docs, stories' },
+                        { icon: '🔍', title: 'Learn something', desc: 'explain complex topics' },
+                        { icon: '⚡', title: 'Boost productivity', desc: 'optimize workflows' },
+                      ].map((item, i) => (
+                        <button key={i} onClick={() => setInput(`Help me ${item.title.toLowerCase()}`)} className={`p-4 rounded-xl text-left ${isDark ? 'bg-gray-800 hover:bg-gray-750 border-gray-700' : 'bg-white hover:bg-gray-50 border-gray-200'} border transition-all hover:scale-105`}>
+                          <div className="text-2xl mb-2">{item.icon}</div>
+                          <div className={`font-medium mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{item.title}</div>
+                          <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="max-w-3xl mx-auto p-6 space-y-6">
+                    {messages.map(message => (
+                      <div key={message.id} className={`flex gap-4 ${message.type === 'user' ? 'justify-end' : 'justify-start'} animate-in`}>
+                        {message.type === 'ai' && (
+                          <div className={`w-10 h-10 rounded-xl ${isDark ? 'bg-gradient-to-br from-blue-500 to-purple-600' : 'bg-gradient-to-br from-blue-400 to-purple-500'} flex items-center justify-center flex-shrink-0 shadow-lg`}>
+                            <Bot className="w-5 h-5 text-white" />
+                          </div>
+                        )}
+                        
+                        <div className={`max-w-[75%] ${message.type === 'user' ? 'order-1' : ''}`}>
+                          <div className={`rounded-2xl px-5 py-3 ${message.type === 'user' ? isDark ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white' : isDark ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900 border border-gray-200'} shadow-sm`}>
+                            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                          </div>
+                          <div className={`text-xs mt-1.5 px-2 ${isDark ? 'text-gray-500' : 'text-gray-500'} ${message.type === 'user' ? 'text-right' : ''}`}>{message.timestamp}</div>
+                        </div>
+                        
+                        {message.type === 'user' && (
+                          <div className={`w-10 h-10 rounded-xl ${isDark ? 'bg-gray-700' : 'bg-gray-200'} flex items-center justify-center flex-shrink-0`}>
+                            <User className={`w-5 h-5 ${isDark ? 'text-gray-300' : 'text-gray-600'}`} />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    
+                    {isTyping && (
+                      <div className="flex gap-4 animate-in">
+                        <div className={`w-10 h-10 rounded-xl ${isDark ? 'bg-gradient-to-br from-blue-500 to-purple-600' : 'bg-gradient-to-br from-blue-400 to-purple-500'} flex items-center justify-center shadow-lg`}>
+                          <Bot className="w-5 h-5 text-white" />
+                        </div>
+                        <div className={`rounded-2xl px-5 py-3 ${isDark ? 'bg-gray-800' : 'bg-white border border-gray-200'}`}>
+                          <div className="flex gap-1">
+                            <span className={`w-2 h-2 rounded-full ${isDark ? 'bg-gray-500' : 'bg-gray-400'} animate-bounce`} style={{ animationDelay: '0ms' }}></span>
+                            <span className={`w-2 h-2 rounded-full ${isDark ? 'bg-gray-500' : 'bg-gray-400'} animate-bounce`} style={{ animationDelay: '150ms' }}></span>
+                            <span className={`w-2 h-2 rounded-full ${isDark ? 'bg-gray-500' : 'bg-gray-400'} animate-bounce`} style={{ animationDelay: '300ms' }}></span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </div>
+
+              <div className={`${isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} border-t p-4`}>
+                <div className="max-w-3xl mx-auto">
+                  <div className={`flex gap-3 items-end p-2 rounded-2xl ${isDark ? 'bg-gray-800' : 'bg-gray-50'} shadow-lg`}>
+                    <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={handleKeyPress} placeholder="Message Drippy..." rows="1" className={`flex-1 bg-transparent px-4 py-3 ${isDark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'} resize-none focus:outline-none max-h-32`} style={{ minHeight: '24px' }} />
+                    <button onClick={handleSend} disabled={!input.trim()} className={`p-3 rounded-xl transition-all ${input.trim() ? isDark ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-blue-500/50' : 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg' : isDark ? 'bg-gray-700 text-gray-500' : 'bg-gray-200 text-gray-400'} disabled:cursor-not-allowed`}>
+                      <Send className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      ReactDOM.render(<ModernAIChatbot />, document.getElementById('root'));
+    </script>
   </body>
 </html>

@@ -8,6 +8,10 @@ uv pip install -e .
 
 uvicorn drippy.api:app --reload
 visit localhost:8000/docs
+
+frontend go to "my-electron-app"
+npm i
+npm start
 ```
 
 

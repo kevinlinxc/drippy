@@ -1,13 +1,39 @@
-const { app, BrowserWindow } = require('electron/main')
+const { app, BrowserWindow, screen } = require('electron/main')
 
-const createWindow = () => {
-  const win = new BrowserWindow({
-    width: 800,
-    height: 600
-  })
+let win;
 
-  win.loadFile('index.html')
+function createWindow() {
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+  const windowWidth = Math.floor(screenWidth / 3);
+  const xPosition = 0; // left side
+
+  win = new BrowserWindow({
+    width: windowWidth,
+    height: screenHeight,
+    x: xPosition,
+    y: 0,
+    minWidth: 400,
+    minHeight: 600,
+    vibrancy: "hud",
+    titleBarStyle: 'hiddenInset',
+    titleBarOverlay: {
+      color: '#ffffff',
+      symbolColor: '#000000',
+      height: 40
+    },
+    visualEffectState: "active",
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    },
+    alwaysOnTop: false
+  });
+
+  win.loadFile('index.html');
 }
+
+app.whenReady().then(createWindow);
+
 
 app.whenReady().then(() => {
   createWindow()
