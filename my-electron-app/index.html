@@ -58,6 +58,8 @@
         const [isInitialized, setIsInitialized] = useState(false);
         const apiBaseUrl = 'http://localhost:8501';
         const messagesEndRef = useRef(null);
+        const todoListRef = useRef([]); // Ref to store todos for reliable access
+        const currentStepRef = useRef(0); // Ref to store current step for reliable access
 
         useEffect(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -70,41 +72,62 @@
           try {
             const response = await fetch(`${apiBaseUrl}/todo-list`, {
               method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
             });
             console.log('Response status:', response.status, response.statusText);
-            if (response.ok) {
-              const data = await response.json();
-              console.log('Response data:', data);
-              const todos = data.todo_list || [];
-              console.log('Extracted todos:', todos);
-              console.log('Number of todos:', todos.length);
-              return todos;
-            } else {
+            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+            
+            if (!response.ok) {
               const errorText = await response.text();
               console.error('API error response:', errorText);
+              throw new Error(`API returned ${response.status}: ${errorText}`);
             }
+            
+            const data = await response.json();
+            console.log('Response data (full):', JSON.stringify(data, null, 2));
+            console.log('Response data type:', typeof data);
+            console.log('Has todo_list property:', 'todo_list' in data);
+            
+            const todos = data.todo_list || [];
+            console.log('Extracted todos:', todos);
+            console.log('Number of todos:', todos.length);
+            console.log('Todos is array:', Array.isArray(todos));
+            
+            if (!Array.isArray(todos)) {
+              console.error('ERROR: todo_list is not an array!', typeof todos, todos);
+              throw new Error(`Invalid response: todo_list is not an array (got ${typeof todos})`);
+            }
+            
+            if (todos.length === 0) {
+              console.warn('WARNING: todo_list is empty array');
+            }
+            
+            return todos;
           } catch (err) {
             console.error('Error loading todo list:', err);
             console.error('Error details:', err.message, err.stack);
+            // Re-throw so caller can handle it
+            throw err;
           }
-          // Fallback: return empty array
-          console.warn('Returning empty array as fallback');
-          return [];
         };
 
-        // Process next step
+        // Process next step - uses refs for reliable access
         const processNextStep = async () => {
           console.log('=== processNextStep called ===');
-          console.log('State check:', { 
-            currentStep, 
-            todoListLength: todoList.length,
-            todoList: todoList,
-            isProcessingStep,
-            isInitialized
-          });
           
-          if (todoList.length === 0) {
-            console.error('ERROR: Todo list is empty!');
+          // Use refs to get current values (more reliable than state)
+          const todos = todoListRef.current;
+          const step = currentStepRef.current;
+          
+          console.log('Current step (from ref):', step);
+          console.log('Todo list from ref:', todos);
+          console.log('Todo list length:', todos.length);
+          
+          // Check if we have a todo list
+          if (!todos || todos.length === 0) {
+            console.error('ERROR: Todo list is empty or not set!');
             setMessages((m) => [...m, {
               id: Date.now(),
               type: 'ai',
@@ -113,31 +136,39 @@
             return;
           }
           
-          if (currentStep >= todoList.length) {
+          // Check if we've completed all steps
+          if (step >= todos.length) {
             console.log('All steps completed');
             setMessages((m) => [...m, {
               id: Date.now(),
               type: 'ai',
               content: '✅ All steps completed!'
             }]);
-            return; // All steps completed
+            return;
           }
 
-          console.log(`Starting step ${currentStep + 1} of ${todoList.length}`);
+          // Get the current todo item
+          const todoItem = todos[step];
+          console.log(`Processing step ${step + 1}/${todos.length}:`, todoItem);
+          
+          // Process the step
+          await processStepAsync(step, todoItem, todos.length);
+        };
+        
+        // Async function to process a single step
+        const processStepAsync = async (stepIndex, todoItem, totalSteps) => {
+          
           setIsProcessingStep(true);
-          const todoItem = todoList[currentStep];
-          console.log(`Processing step ${currentStep + 1}/${todoList.length}:`, todoItem);
-          console.log('Todo item type:', typeof todoItem, 'Value:', todoItem);
           
           // Show step message
           setMessages((m) => [...m, {
             id: Date.now(),
             type: 'ai',
-            content: `🔄 Step ${currentStep + 1}/${todoList.length}: ${todoItem}`
+            content: `🔄 Step ${stepIndex + 1}/${totalSteps}: ${todoItem}`
           }]);
           
           try {
-            console.log('Calling API:', `${apiBaseUrl}/next_action`, { todo_list: todoItem });
+            console.log('Calling /next_action API with:', { todo_list: todoItem });
             // Call the next_action API endpoint
             const response = await fetch(`${apiBaseUrl}/next_action`, {
               method: 'POST',
@@ -154,9 +185,11 @@
 
             const data = await response.json();
             console.log('API response data:', data);
+            
+            // Set the step data to show instructions and buttons
             setCurrentStepData({
-              step: currentStep + 1,
-              total: todoList.length,
+              step: stepIndex + 1,
+              total: totalSteps,
               instructions: data.instructions,
               bbox: { x: data.x, y: data.y, width: data.width, height: data.height }
             });
@@ -165,7 +198,7 @@
             setMessages((m) => [...m, {
               id: Date.now(),
               type: 'ai',
-              content: `⚠️ Error processing step ${currentStep + 1}: ${err.message}`
+              content: `⚠️ Error processing step ${stepIndex + 1}: ${err.message}`
             }]);
           } finally {
             setIsProcessingStep(false);
@@ -197,22 +230,36 @@
             console.log('Loaded todos:', todos);
             console.log('Number of todos:', todos.length);
             
-            if (!todos || todos.length === 0) {
-              console.error('No todos loaded!');
+            // Check if we got todos
+            if (!todos || !Array.isArray(todos)) {
+              console.error('Invalid todos response:', todos);
               setMessages((m) => [...m, {
                 id: Date.now() + 1,
                 type: 'ai',
-                content: '⚠️ Error: No todo items found'
+                content: `⚠️ Error: Invalid response from API. Got: ${typeof todos}`
               }]);
               setIsTyping(false);
               return;
             }
             
+            if (todos.length === 0) {
+              console.error('Todo list is empty');
+              setMessages((m) => [...m, {
+                id: Date.now() + 1,
+                type: 'ai',
+                content: '⚠️ Error: Todo list is empty. Check API server logs.'
+              }]);
+              setIsTyping(false);
+              return;
+            }
+            
+            // Set the todo list in both state and ref
             setTodoList(todos);
+            todoListRef.current = todos; // Store in ref for reliable access
             setIsInitialized(true);
-            console.log('Todo list set, initialized:', true);
+            console.log('Todo list set in state and ref:', todos);
 
-            // Show todo list after a longer delay (3 seconds for thinking)
+            // Show todo list after thinking
             setTimeout(() => {
               console.log('Displaying todo list in UI...');
               setMessages((m) => [...m, {
@@ -222,19 +269,27 @@
               }]);
               setIsTyping(false);
               
-              // Start processing first step after another delay
-              console.log('Scheduling first step processing...');
-              setTimeout(() => {
-                console.log('About to call processNextStep for first step');
-                console.log('Current state:', { currentStep, todoListLength: todos.length });
-                processNextStep();
-              }, 1000);
-            }, 3000);
+              // Start processing first step
+              console.log('Starting first step...');
+              console.log('Todo list:', todos);
+              
+              // Set both states and refs
+              setCurrentStep(0);
+              currentStepRef.current = 0;
+              setTodoList(todos);
+              todoListRef.current = todos;
+              
+              // Start processing immediately (refs are updated synchronously)
+              console.log('Calling processNextStep for step 0');
+              console.log('Refs updated:', { step: currentStepRef.current, todos: todoListRef.current });
+              processNextStep();
+            }, 2000);
           } catch (err) {
+            console.error('Error in handleSend:', err);
             setMessages((m) => [...m, {
               id: Date.now() + 3,
               type: 'ai',
-              content: '⚠️ Error: Could not load todo list.'
+              content: `⚠️ Error: Could not load todo list. ${err.message || 'Unknown error'}. Check console for details.`
             }]);
             setIsTyping(false);
           }
@@ -243,22 +298,23 @@
         // Handle Next button click
         const handleNext = () => {
           console.log('=== Next button clicked ===');
+          const todos = todoListRef.current;
+          const step = currentStepRef.current;
           console.log('Current state:', { 
-            currentStep, 
-            todoListLength: todoList.length,
-            isLastStep: currentStep >= todoList.length - 1
+            step, 
+            todoListLength: todos.length,
+            isLastStep: step >= todos.length - 1
           });
           
-          if (currentStep < todoList.length - 1) {
-            const nextStep = currentStep + 1;
+          if (step < todos.length - 1) {
+            const nextStep = step + 1;
             console.log(`Moving to next step: ${nextStep}`);
             setCurrentStep(nextStep);
+            currentStepRef.current = nextStep; // Update ref immediately
             setCurrentStepData(null);
-            // Process next step
-            setTimeout(() => {
-              console.log('Calling processNextStep from Next button');
-              processNextStep();
-            }, 300);
+            // Process next step immediately (ref is updated)
+            console.log('Calling processNextStep from Next button');
+            processNextStep();
           } else {
             console.log('Already at last step, cannot go next');
           }

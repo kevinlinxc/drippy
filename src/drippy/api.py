@@ -1,8 +1,10 @@
 import os
-import subprocess
+import re
 import sys
+import threading
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from PyQt5.QtWidgets import QApplication
@@ -16,6 +18,15 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+)
+
+# Add CORS middleware for Electron app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for Electron app
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Get project root directory
@@ -48,14 +59,6 @@ class NextActionResponse(BaseModel):
 
 class TaskRequest(BaseModel):
     task: str = Field(..., description="Description of the task to complete (e.g., 'How to download a youtube video and convert it to mp3')")
-
-
-class OverlayRequest(BaseModel):
-    x: int = Field(..., description="X coordinate of the bounding box")
-    y: int = Field(..., description="Y coordinate of the bounding box")
-    width: int = Field(..., description="Width of the bounding box")
-    height: int = Field(..., description="Height of the bounding box")
-    text: str = Field(..., description="Instructions text to display")
 
 
 @app.post(
@@ -319,8 +322,22 @@ async def next_action(request: TodoListRequest):
     
     print("[API] Showing overlay...")
     # Show overlay with converted coordinates
-    show_overlay(x, y, width, height)
-    print("[API] Overlay shown")
+    # On macOS, PyQt windows must be created on the main thread
+    # Use QTimer to schedule on main thread if QApplication exists
+    app = QApplication.instance()
+    if app is not None:
+        # QApplication exists, schedule overlay on main thread
+        from PyQt5.QtCore import QTimer
+        def show_overlay_on_main_thread():
+            show_overlay(x, y, width, height)
+        QTimer.singleShot(0, show_overlay_on_main_thread)
+        print("[API] Overlay scheduled on main thread")
+    else:
+        # No QApplication yet, create one and show overlay
+        # This will block until overlay closes, but it's the only way on macOS
+        print("[API] Creating QApplication and showing overlay (this will block until overlay closes)")
+        show_overlay(x, y, width, height)
+        print("[API] Overlay closed")
     
     # Return next action with bounding box and instructions
     response = NextActionResponse(
@@ -680,79 +697,4 @@ async def process_task(request: TaskRequest):
         height=int(result["height"]),
         instructions=str(result["instructions"])
     )
-
-
-@app.post(
-    "/show_overlay",
-    summary="Display overlay with coordinates and instructions",
-    description="Triggers the overlay window to display at the specified coordinates with instructions",
-    tags=["Overlay"],
-    responses={
-        200: {
-            "description": "Overlay displayed successfully",
-            "content": {
-                "application/json": {
-                    "example": {"status": "success", "message": "Overlay displayed"}
-                }
-            }
-        },
-        500: {
-            "description": "Error displaying overlay",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Error running overlay"}
-                }
-            }
-        }
-    }
-)
-async def show_overlay(request: OverlayRequest):
-    """
-    Display the overlay window at the specified coordinates with instructions.
-    
-    This endpoint triggers the overlay.py module to display a visual guide
-    on the screen at the specified location.
-    
-    **Example request:**
-    ```json
-    {
-        "x": 100,
-        "y": 200,
-        "width": 150,
-        "height": 50,
-        "text": "Click this button to proceed"
-    }
-    ```
-    """
-    try:
-        # Get the path to the overlay module
-        overlay_module = Path(__file__).parent / "overlay.py"
-        
-        # Run the overlay as a subprocess
-        # Use the Python interpreter that's running this server
-        python_exe = sys.executable
-        
-        subprocess.Popen(
-            [
-                python_exe,
-                "-m",
-                "src.drippy.overlay",
-                str(request.x),
-                str(request.y),
-                str(request.width),
-                str(request.height),
-                "--text",
-                request.text
-            ],
-            cwd=Path(__file__).parent.parent.parent,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-        
-        return {"status": "success", "message": "Overlay displayed"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error displaying overlay: {str(e)}"
-        )
 
