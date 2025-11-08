@@ -1,5 +1,6 @@
 .env
 *.egg-info
+<<<<<<< Updated upstream
 **.pyc
 
 # Node.js / Electron
@@ -17,3 +18,7 @@ yarn-error.log*
 dist/
 build/
 out/  
+=======
+**.pyc  
+**__pycache__**
+>>>>>>> Stashed changes

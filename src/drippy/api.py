@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from .screenshot_tool import take_screenshot, query_gemini_for_section
+from .gemini_query import take_screenshot, query_gemini_for_section, query_gemini_for_next_action
 
 app = FastAPI(
     title="Drippy API",
@@ -22,6 +22,18 @@ class BoundingBoxResponse(BaseModel):
     y: int = Field(..., description="Top coordinate of the bounding box in pixels")
     width: int = Field(..., description="Width of the bounding box in pixels")
     height: int = Field(..., description="Height of the bounding box in pixels")
+
+
+class TodoListRequest(BaseModel):
+    todo_list: str = Field(..., description="A long string containing the todo list of tasks to complete")
+
+
+class NextActionResponse(BaseModel):
+    x: int = Field(..., description="Left coordinate of the area to interact with in pixels")
+    y: int = Field(..., description="Top coordinate of the area to interact with in pixels")
+    width: int = Field(..., description="Width of the area to interact with in pixels")
+    height: int = Field(..., description="Height of the area to interact with in pixels")
+    instructions: str = Field(..., description="Detailed instructions on what action to take next")
 
 
 @app.post(
@@ -124,5 +136,112 @@ async def search_on_screen(request: SearchRequest):
         y=int(result["y"]),
         width=int(result["width"]),
         height=int(result["height"])
+    )
+
+
+@app.post(
+    "/next_action",
+    response_model=NextActionResponse,
+    summary="Get next action from todo list",
+    description="Takes a screenshot, analyzes it with a todo list, and returns the next action to take with bounding box and instructions",
+    tags=["Screen Search"],
+    responses={
+        200: {
+            "description": "Successfully determined next action",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "x": 100,
+                        "y": 200,
+                        "width": 150,
+                        "height": 50,
+                        "instructions": "Click the login button to proceed"
+                    }
+                }
+            }
+        },
+        404: {
+            "description": "Cannot determine next action",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Cannot determine next action"}
+                }
+            }
+        },
+        500: {
+            "description": "Server error (API key missing or invalid response)",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "GEMINI_API_KEY environment variable is not set"}
+                }
+            }
+        }
+    }
+)
+async def next_action(request: TodoListRequest):
+    """
+    Determine the next action to take based on a todo list and current screen state.
+    
+    This endpoint:
+    1. Takes a screenshot of the primary monitor
+    2. Analyzes the screenshot along with the provided todo list
+    3. Determines what action should be taken next
+    4. Returns the bounding box of the area to interact with and detailed instructions
+    
+    **Example request:**
+    ```json
+    {
+        "todo_list": "1. Log into the application\\n2. Navigate to settings\\n3. Update profile information"
+    }
+    ```
+    
+    **Example response:**
+    ```json
+    {
+        "x": 100,
+        "y": 200,
+        "width": 150,
+        "height": 50,
+        "instructions": "Click the login button to proceed with authentication"
+    }
+    ```
+    """
+    # Get API key from environment
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="GEMINI_API_KEY environment variable is not set"
+        )
+    
+    # Take screenshot
+    screenshot = take_screenshot()
+    
+    # Query Gemini for the next action
+    result = query_gemini_for_next_action(screenshot, request.todo_list, api_key)
+    
+    # Check for errors
+    if "error" in result:
+        raise HTTPException(
+            status_code=404,
+            detail=result["error"]
+        )
+    
+    # Validate that we have all required fields
+    required_fields = ["x", "y", "width", "height", "instructions"]
+    for field in required_fields:
+        if field not in result:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Invalid response from Gemini: missing field '{field}'"
+            )
+    
+    # Return next action with bounding box and instructions
+    return NextActionResponse(
+        x=int(result["x"]),
+        y=int(result["y"]),
+        width=int(result["width"]),
+        height=int(result["height"]),
+        instructions=str(result["instructions"])
     )
 

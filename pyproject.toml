@@ -17,6 +17,7 @@ dependencies = [
     "mss",
     "fastapi",
     "uvicorn[standard]",
+    "PyQt5",
 ]
 
 [tool.setuptools.packages.find]

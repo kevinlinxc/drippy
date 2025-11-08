@@ -1,0 +1,15 @@
+1. Open the browser app (firefox)
+2. Open the url youtube.com
+3. Search on Youtube for "O Canada"
+4. Click the first video result
+5. Copy the video url
+6. Open a new tab
+7. Open google.com
+8. Search for "youtube to mp3"
+9. Click the first result
+10. Paste the video url into the input field
+11. Click the convert/go button
+13. Download the mp3 file
+14. Open the file explorer/finder app
+15. Navigate to the downloads folder
+16. Play the mp3 file
