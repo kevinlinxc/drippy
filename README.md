@@ -14,4 +14,5 @@ npm i
 npm start
 ```
 
+python -m src.drippy.overlay 100 100 200 150
 
